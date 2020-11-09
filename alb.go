@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/url"
 	"strings"
 
 	"github.com/aws/aws-lambda-go/events"
@@ -36,11 +37,13 @@ func newALBRequest(ctx context.Context, payload []byte, opts *Options) (lambdaRe
 		return lambdaRequest{}, errALBExpectedMultiValueHeaders
 	}
 
+
+
 	req := lambdaRequest{
 		HTTPMethod:                      event.HTTPMethod,
 		Path:                            event.Path,
-		QueryStringParameters:           event.QueryStringParameters,
-		MultiValueQueryStringParameters: event.MultiValueQueryStringParameters,
+		QueryStringParameters:           map[string]string{},
+		MultiValueQueryStringParameters: map[string][]string{},
 		Headers:                         event.Headers,
 		MultiValueHeaders:               event.MultiValueHeaders,
 		Body:                            event.Body,
@@ -48,6 +51,33 @@ func newALBRequest(ctx context.Context, payload []byte, opts *Options) (lambdaRe
 		SourceIP:                        getALBSourceIP(event),
 		Context:                         newTargetGroupRequestContext(ctx, event),
 	}
+
+	for k, v:= range event.QueryStringParameters {
+		k, err := url.QueryUnescape(k)
+		if err != nil {
+			return lambdaRequest{}, err
+		}
+		v, err := url.QueryUnescape(v)
+		if err != nil {
+			return lambdaRequest{}, err
+		}
+		req.QueryStringParameters[k] = v
+	}
+	for k, vv:= range event.MultiValueQueryStringParameters {
+		k, err := url.QueryUnescape(k)
+		if err != nil {
+			return lambdaRequest{}, err
+		}
+		for i, v := range vv {
+			vv[i], err = url.QueryUnescape(v)
+			if err != nil {
+				return lambdaRequest{}, err
+			}
+		}
+		req.MultiValueQueryStringParameters[k] = vv
+	}
+
+
 
 	return req, nil
 }
